@@ -1,0 +1,153 @@
+```{r}
+setwd("PATH")
+```
+
+```{r setup, include=FALSE}
+library(tableone)
+library(survey)
+options(survey.lonely.psu="certainty")
+options(max.print = 5000)
+```
+
+### IMPORT AND SUBSET DATA FOR ANALYSIS
+```{r}
+random = read.csv("./nhats_analytic_single_home_hha_20210518.csv", header = TRUE, sep = ",")
+
+dementia = random[random$BASELINE_DEMCLAS == 1 & !is.na(random$BASELINE_DEMCLAS), ] # probable dementia
+nodementia = random[random$BASELINE_DEMCLAS > 1 & !is.na(random$BASELINE_DEMCLAS) , ] # no dementia + possible dementia
+```
+
+### VARIABLES
+```{r}
+cg = c("CG_N1", "CG_0", "CG_1", "CG_2", "CG_3", "CG_4", "CG_5", "CG_6", "CG_7", "CG_8","CG_9")
+```
+
+### DEMENTIA SUBGROUP ANALYSIS
+
+```{r}
+yes_adl = dementia[dementia$HELP_ADL == 1, ] ## fig 2
+
+yes_adl_no_hha = yes_adl[yes_adl$RECEIPT_HHA_90DAY == 0, ] ## SP WHO HAD HELP BUT DID NOT RECEIVE home health
+```
+
+### APPLY WEIGHTS, overall and by round
+```{r}
+random_svy = svydesign(ids = ~ SPID, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = dementia) # R1 - R7
+
+yes_adl_svy = svydesign(ids = ~ VARUNIT, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = yes_adl)
+
+yes_adl_no_hha_svy = svydesign(ids = ~ VARUNIT, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = yes_adl_no_hha)
+```
+
+## Figure 1a, weighted, dementia subgroup
+```{r}
+out_wt1 = svyCreateTableOne(vars = c("HELP_ADL"), data = random_svy, test = FALSE, factorVars =  c("HELP_ADL"), includeNA = TRUE, strata = "ROUND")
+print(out_wt1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## Figure 1b, weighted, dementia subgroup
+```{r}
+out_wt1 = svyCreateTableOne(vars = c("HELP_ADL_NO_HHA"), data = random_svy, test = FALSE, factorVars =  c("HELP_ADL_NO_HHA"), includeNA = TRUE, strata = "ROUND")
+print(out_wt1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## figure 2a, weighted
+```{r}
+print2a = svyCreateTableOne(vars = cg, data = yes_adl_svy, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2a, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+```
+## figure 2b, weighted
+```{r}
+print2b = svyCreateTableOne(vars = cg, data = yes_adl_no_hha_svy, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2b, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+```
+
+
+## Appendix Figure 1a, unweighted, dementia subgroup
+```{r}
+out_uwt1 = CreateTableOne(vars = c("HELP_ADL"), data = dementia, test = FALSE, factorVars =  c("HELP_ADL"), includeNA = TRUE, strata = "ROUND")
+print(out_uwt1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## Appendix Figure 1b, unweighted, dementia subgroup
+```{r}
+out_uwt1 = CreateTableOne(vars = c("HELP_ADL_NO_HHA"), data = dementia, test = FALSE, factorVars =  c("HELP_ADL_NO_HHA"), includeNA = TRUE, strata = "ROUND")
+print(out_uwt1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## Appendix Figure 2a, unweighted
+```{r}
+print2a_uwt = CreateTableOne(vars = cg, data = yes_adl, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2a_uwt, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+```
+## Appendix Figure 2b, unweighted
+```{r}
+print2b_uwt = CreateTableOne(vars = cg, data = yes_adl_no_hha, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2b_uwt, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+```
+
+
+
+
+### NO/POSSIBLE DEMENTIA SUBGROUP ANALYSIS
+
+```{r}
+yes_adl = nodementia[nodementia$HELP_ADL == 1, ] ## fig 2
+
+yes_adl_no_hha = yes_adl[yes_adl$RECEIPT_HHA_90DAY == 0, ] ## SP WHO HAD HELP BUT DID NOT RECEIVE home health
+```
+
+### APPLY WEIGHTS, overall and by round
+```{r}
+random_svy = svydesign(ids = ~ SPID, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = nodementia) # R1 - R7
+
+yes_adl_svy = svydesign(ids = ~ VARUNIT, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = yes_adl)
+
+yes_adl_no_hha_svy = svydesign(ids = ~ VARUNIT, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = yes_adl_no_hha)
+```
+
+## Figure 1a, weighted, no/possible dementia subgroup
+```{r}
+out_wt1 = svyCreateTableOne(vars = c("HELP_ADL"), data = random_svy, test = FALSE, factorVars =  c("HELP_ADL"), includeNA = TRUE, strata = "ROUND")
+print(out_wt1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## Figure 1b, weighted, no/possible dementia subgroup
+```{r}
+out_wt1 = svyCreateTableOne(vars = c("HELP_ADL_NO_HHA"), data = random_svy, test = FALSE, factorVars =  c("HELP_ADL_NO_HHA"), includeNA = TRUE, strata = "ROUND")
+print(out_wt1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## figure 2a, weighted, no/possible dementia subgroup
+```{r}
+print1 = svyCreateTableOne(vars = cg, data = yes_adl_svy, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+```
+## figure 2b, weighted, no/possible dementia subgroup
+```{r}
+print1 = svyCreateTableOne(vars = cg, data = yes_adl_no_hha_svy, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+```
+
+## Appendix Figure 1a, unweighted, no/possible dementia subgroup
+```{r}
+out_uwt1 = CreateTableOne(vars = c("HELP_ADL"), data = nodementia, test = FALSE, factorVars =  c("HELP_ADL"), includeNA = TRUE, strata = "ROUND")
+print(out_uwt1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## Appendix Figure 1b, unweighted, no/possible dementia subgroup
+```{r}
+out_uwt1 = CreateTableOne(vars = c("HELP_ADL_NO_HHA"), data = nodementia, test = FALSE, factorVars =  c("HELP_ADL_NO_HHA"), includeNA = TRUE, strata = "ROUND")
+print(out_uwt1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## Appendix Figure 2a, unweighted, no/possible dementia subgroup
+```{r}
+print2a_uwt = CreateTableOne(vars = cg, data = yes_adl, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2a_uwt, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+```
+## Appendix Figure 2b, unweighted, no/possible dementia subgroup
+```{r}
+print2b_uwt = CreateTableOne(vars = cg, data = yes_adl_no_hha, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2b_uwt, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+```

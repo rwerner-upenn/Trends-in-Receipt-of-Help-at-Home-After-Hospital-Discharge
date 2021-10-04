@@ -1,0 +1,202 @@
+
+```{r}
+setwd("PATH")
+```
+
+```{r setup, include=FALSE}
+library(tableone)
+library(survey)
+options(survey.lonely.psu="certainty")
+options(max.print = 5000)
+```
+
+### IMPORT AND SUBSET DATA FOR ANALYSIS
+```{r}
+random = read.csv("./nhats_analytic_single_home_hha_20210518.csv", header = TRUE, sep = ",")
+## SUBGROUP: SP WHO DID NOT RECEIVE HELP IN THE MONTH PRIOR TO HOSPITALIZATION
+subgrp = random[random$ADL_PRIOR_DISCH == 0 & !is.na(random$ADL_PRIOR_DISCH), ] 
+yes_adl = random[random$HELP_ADL == 1, ]
+## SUBGROUP: SP WHO HAD HELP BUT DID NOT RECEIVE HELP IN THE MONTH PRIOR TO HOSPITALIZATION
+yes_adl_no_prior =  yes_adl[yes_adl$ADL_PRIOR_DISCH == 0 & !is.na(yes_adl$ADL_PRIOR_DISCH), ] 
+yes_adl_no_hha =  yes_adl[yes_adl$RECEIPT_HHA_90DAY == 0 & !is.na(yes_adl$RECEIPT_HHA_90DAY), ] ## fig 2 ## SUBGROUP: SP WHO HAD HELP BUT DID NOT HAVE HOME HEALTH VISITS
+
+yes_adl_no_hha_no_prior =  yes_adl[yes_adl$RECEIPT_HHA_90DAY == 0 & !is.na(yes_adl$RECEIPT_HHA_90DAY) & yes_adl$ADL_PRIOR_DISCH == 0 & !is.na(yes_adl$ADL_PRIOR_DISCH), ] ## fig 2 SUBGROUP: SP WHO HAD HELP BUT DID NOT HAVE HOME HEALTH VISITS, DID NOT RECEIVE HELP IN THE MONTH PRIOR TO ADMISSION
+
+```
+
+### APPLY WEIGHTS, overall and by round
+```{r}
+random_svy = svydesign(ids = ~ SPID, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = random) # R1 - R7
+#random_svy_r2r7 = svydesign(ids = ~ SPID, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = random[random$ROUND > 1, ]) # R2 - R7
+
+for (val in c(1, 2, 3, 4, 5, 6, 7)) {
+df = svydesign(ids = ~ SPID, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = random[random$ROUND==val,])
+assign(paste("random_svy", val, sep = ""), df)
+}
+```
+
+```{r}
+sub_svy = svydesign(ids = ~ VARUNIT, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = subgrp)
+
+for (val in c(1, 2, 3, 4, 5, 6, 7)) {
+df = svydesign(ids = ~ SPID, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = subgrp[subgrp$ROUND==val,])
+assign(paste("sub_svy", val, sep = ""), df)
+}
+```
+
+```{r}
+yes_adl_svy = svydesign(ids = ~ VARUNIT, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = yes_adl)
+
+yes_adl_no_prior_svy = svydesign(ids = ~ VARUNIT, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = yes_adl_no_prior)
+
+yes_adl_no_hha_svy =  svydesign(ids = ~ VARUNIT, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = yes_adl_no_hha)
+
+yes_adl_no_hha_no_prior_svy = svydesign(ids = ~ VARUNIT, strata = ~ VARSTRATA, weights = ~ ANA_FINAL_WT0, nest = TRUE, data = yes_adl_no_hha_no_prior)
+
+```
+
+
+### VARIABLES FOR ANALYSIS
+```{r}
+table1var = c("GENDER", "AGE", "RACE2", "MARITAL", "BASELINE_OVERALL_HEALTH", 
+                   "BASELINE_INDEPENDENT_MO",  "BASELINE_INDEPENDENT_SC", "BASELINE_INDEPENDENT_HA", "BASELINE_INDEPENDENT_MC", 
+                  "BASELINE_DEMCLAS", "LOS_INPATIENT", "DRG470", "DRG871", "DRG392", "DRG194","DRG603",  "DRG292")
+table1catvar = c("GENDER", "RACE2", "MARITAL", "BASELINE_OVERALL_HEALTH",
+                     "BASELINE_INDEPENDENT_MO",  "BASELINE_INDEPENDENT_SC", "BASELINE_INDEPENDENT_HA", "BASELINE_INDEPENDENT_MC", 
+                  "BASELINE_DEMCLAS", "DRG470", "DRG871", "DRG392", "DRG194", "DRG603", "DRG292")
+
+table2var = c("HELP_ADL", "RECEIPT_HHA_90DAY", "HELP_ADL_NO_HHA")
+table2catvar = c("HELP_ADL", "RECEIPT_HHA_90DAY", "HELP_ADL_NO_HHA")
+
+tableshellvar = c("HELP_ADL", "RECEIPT_HHA_90DAY", "HELP_ADL_NO_HHA", "GENDER", "AGE", "RACE2", "MARITAL", "BASELINE_OVERALL_HEALTH", 
+                   "BASELINE_INDEPENDENT_MO",  "BASELINE_INDEPENDENT_SC", "BASELINE_INDEPENDENT_HA", "BASELINE_INDEPENDENT_MC", 
+                  "BASELINE_DEMCLAS", "LOS_INPATIENT", "DRG470", "DRG871", "DRG392", "DRG194","DRG603",  "DRG292")
+tableshellcatvar = c("HELP_ADL", "RECEIPT_HHA_90DAY", "HELP_ADL_NO_HHA",  "GENDER", "RACE2", "MARITAL", "BASELINE_OVERALL_HEALTH",
+                     "BASELINE_INDEPENDENT_MO",  "BASELINE_INDEPENDENT_SC", "BASELINE_INDEPENDENT_HA", "BASELINE_INDEPENDENT_MC", 
+                  "BASELINE_DEMCLAS", "DRG470", "DRG871", "DRG392", "DRG194", "DRG603", "DRG292")
+
+cg = c("CG_N1", "CG_0", "CG_1", "CG_2", "CG_3", "CG_4", "CG_5", "CG_6", "CG_7", "CG_8","CG_9")
+
+```
+
+
+# main cohort descriptive
+
+## Table 1: breakdown by receiving/not receiving help, all round, weighted
+```{r}
+tb1_wt = svyCreateTableOne(vars = table1var, data = random_svy, test = FALSE, factorVars = table1catvar, includeNA = FALSE)
+print(tb1_wt, showAllLevels = FALSE, contDigits = 1, catDigits = 1, quote = FALSE, noSpaces = TRUE, format = "p")
+
+tb1_wt = svyCreateTableOne(vars = table1var, data = random_svy, test = FALSE, factorVars = table1catvar, includeNA = FALSE, strata = "HELP_ADL")
+print(tb1_wt, showAllLevels = FALSE, contDigits = 1, catDigits = 1, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## Table 2: breakdown by receiving/not receiving help, all round, weighted
+```{r}
+tb2_wt = svyCreateTableOne(vars = table2var, data = random_svy, test = FALSE, factorVars = table2catvar, includeNA = FALSE)
+print(tb2_wt, showAllLevels = FALSE, contDigits = 1, catDigits = 1, quote = FALSE, noSpaces = TRUE, format = "p")
+
+tb2_wt = svyCreateTableOne(vars = table2var, data = random_svy, test = FALSE, factorVars = table2catvar, includeNA = FALSE, strata = "HELP_ADL")
+print(tb2_wt, showAllLevels = FALSE, contDigits = 1, catDigits = 1, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## Figure 1a, weighted, all discharges
+```{r}
+out_wt1 = svyCreateTableOne(vars = c("HELP_ADL"), data = random_svy, test = FALSE, factorVars =  c("HELP_ADL"), includeNA = TRUE, strata = "ROUND")
+print(out_wt1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+## Figure 1a, weighted, AMONG SP NOT RECEIVE HELP IN THE MONTH PRIOR TO HOSPITALIZATION
+```{r}
+out_wt2 = svyCreateTableOne(vars =  c("HELP_ADL"), data = sub_svy, test = FALSE, factorVars =  c("HELP_ADL"), includeNA = TRUE, strata = "ROUND")
+print(out_wt2, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## Figure 1b, weighted, all discharges
+```{r}
+out_wt1 = svyCreateTableOne(vars = c("HELP_ADL_NO_HHA"), data = random_svy, test = FALSE, factorVars =  c("HELP_ADL_NO_HHA"), includeNA = TRUE, strata = "ROUND")
+print(out_wt1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+## Figure 1b, weighted, AMONG SP NOT RECEIVE HELP IN THE MONTH PRIOR TO HOSPITALIZATION
+```{r}
+out_wt2 = svyCreateTableOne(vars =  c("HELP_ADL_NO_HHA"), data = sub_svy, test = FALSE, factorVars =  c("HELP_ADL_NO_HHA"), includeNA = TRUE, strata = "ROUND")
+print(out_wt2, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+# Figure 2a， weighted, all discharges receiving ADL & cohort not receiving help prior to hospitalization
+
+```{r}
+print2a = svyCreateTableOne(vars = cg, data = yes_adl_svy, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2a, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+
+print2a = svyCreateTableOne(vars = cg, data = yes_adl_no_prior_svy, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2a, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+```
+
+# Figure 2b, weighted, all discharges receiving ADL & cohort not receiving help prior to hospitalization
+
+```{r}
+print2b = svyCreateTableOne(vars = cg, data = yes_adl_no_hha_svy, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2b, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+
+print2b = svyCreateTableOne(vars = cg, data = yes_adl_no_hha_no_prior_svy, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2b, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+```
+
+
+
+## Appendix Table 2, weighted
+```{r}
+appendix2 = CreateTableOne(vars = tableshellvar, data = random, test = FALSE, factorVars = tableshellcatvar, includeNA = FALSE, strata = "ROUND")
+print(appendix2, showAllLevels = FALSE, contDigits = 1, catDigits = 1, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## Appendix Table 3, 4, unweighted
+```{r}
+appendix3 = CreateTableOne(vars = tableshellvar, data = random, test = FALSE, factorVars = tableshellcatvar, includeNA = FALSE, strata = "HELP_ADL")
+print(appendix3, showAllLevels = FALSE, contDigits = 1, catDigits = 0, quote = FALSE, noSpaces = TRUE, format = "fp")
+```
+
+
+## Appendix Figure 1a, unweighted, all discharges
+```{r}
+out_uwt1 = CreateTableOne(vars =  c("HELP_ADL"), data = random, test = FALSE, factorVars =  c("HELP_ADL"), includeNA = TRUE, strata = "ROUND")
+print(out_uwt1, showAllLevels = TRUE, contDigits = 1, catDigits = 0, quote = FALSE, noSpaces = TRUE, format = "fp")
+```
+
+## Appendix Figure 1a, unweighted, AMONG SP NOT RECEIVE HELP IN THE MONTH PRIOR TO HOSPITALIZATION
+```{r}
+out_uwt2 = CreateTableOne(vars =  c("HELP_ADL", data = subgrp, test = FALSE, factorVars =  c("HELP_ADL"), includeNA = TRUE, strata = "ROUND")
+print(out_uwt2, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+## Appendix Figure 1b, unweighted, all discharges
+```{r}
+out_uwt1 = CreateTableOne(vars = c("HELP_ADL_NO_HHA"), data = random, test = FALSE, factorVars =  c("HELP_ADL_NO_HHA"), includeNA = TRUE, strata = "ROUND")
+print(out_wt1, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+## Appendix Figure 1b, unweighted, AMONG SP NOT RECEIVE HELP IN THE MONTH PRIOR TO HOSPITALIZATION
+```{r}
+out_uwt2 = CreateTableOne(vars =  c("HELP_ADL_NO_HHA"), data = subgrp, test = FALSE, factorVars =  c("HELP_ADL_NO_HHA"), includeNA = TRUE, strata = "ROUND")
+print(out_wt2, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = FALSE, noSpaces = TRUE, format = "p")
+```
+
+# Appendix Figure 2a， unweighted, all discharges receiving ADL & cohort not receiving help prior to hospitalization
+
+```{r}
+print2a = CreateTableOne(vars = cg, data = yes_adl, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2a, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+
+print2a = CreateTableOne(vars = cg, data = yes_adl_no_prior, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2a, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+```
+
+# Appendix Figure 2b, unweighted, all discharges receiving ADL & cohort not receiving help prior to hospitalization
+
+```{r}
+print2b = CreateTableOne(vars = cg, data = yes_adl_no_hha, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2b, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+
+print2b = CreateTableOne(vars = cg, data = yes_adl_no_hha_no_prior, test = FALSE, factorVars = cg, includeNA = FALSE)
+print(print2b, showAllLevels = FALSE, contDigits = 1, catDigits = 2, quote = TRUE, noSpaces = TRUE, format = "p")
+```
+
